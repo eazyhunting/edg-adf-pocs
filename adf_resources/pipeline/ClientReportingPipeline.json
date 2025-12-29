@@ -377,19 +377,19 @@
 			},
 			"clientProc1": {
 				"type": "string",
-				"defaultValue": "dbo.usp_ClientProc1"
+				"defaultValue": "dbo.usp_ClientReport_Fake"
 			},
 			"clientProc2": {
 				"type": "string",
-				"defaultValue": "dbo.usp_ClientProc2"
+				"defaultValue": "dbo.usp_ClientReport_Fake2"
 			},
 			"clientProc3": {
 				"type": "string",
-				"defaultValue": "dbo.usp_ClientProc3"
+				"defaultValue": "dbo.usp_ClientReport_Fake3"
 			},
 			"clientProc4": {
 				"type": "string",
-				"defaultValue": "dbo.usp_ClientProc4"
+				"defaultValue": "dbo.usp_ClientReport_Fake4"
 			},
 			"blobBaseFolder": {
 				"type": "string",
