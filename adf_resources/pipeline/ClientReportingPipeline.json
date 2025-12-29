@@ -343,7 +343,7 @@
 						},
 						{
 							"name": "BuildClientWorkbook",
-							"type": "AzureAutomation",
+							"type": "AzureAutomationRunbook",
 							"dependsOn": [
 								{
 									"activity": "ClientProc4ToCsv",
