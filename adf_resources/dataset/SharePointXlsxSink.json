@@ -11,16 +11,15 @@
       },
       "fileName": {
         "type": "string"
-      },
-      "listName": {
-        "type": "string"
       }
     },
-    "type": "SharePointOnlineList",
+    "type": "Binary",
     "typeProperties": {
-      "listName": "@dataset().listName",
-      "folderPath": "@dataset().folderPath",
-      "fileName": "@dataset().fileName"
+      "location": {
+        "type": "SharePointOnlineLocation",
+        "folderPath": "@dataset().folderPath",
+        "fileName": "@dataset().fileName"
+      }
     }
   }
 }

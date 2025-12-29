@@ -41,10 +41,6 @@
       "sharePointFolderPath": {
         "type": "string",
         "defaultValue": "Shared Documents/Client Reports"
-      },
-      "sharePointListName": {
-        "type": "string",
-        "defaultValue": "Documents"
       }
     },
     "activities": [
@@ -348,8 +344,7 @@
                   "type": "DatasetReference",
                   "parameters": {
                     "folderPath": "@pipeline().parameters.sharePointFolderPath",
-                    "fileName": "@concat(item()[pipeline().parameters.clientNameColumn], '-', pipeline().parameters.xlsxFileName)",
-                    "listName": "@pipeline().parameters.sharePointListName"
+                    "fileName": "@concat(item()[pipeline().parameters.clientNameColumn], '-', pipeline().parameters.xlsxFileName)"
                   }
                 }
               ]
