@@ -343,7 +343,7 @@
 						},
 						{
 							"name": "BuildClientWorkbook",
-							"type": "AzureAutomationRunbook",
+							"type": "WebActivity",
 							"dependsOn": [
 								{
 									"activity": "ClientProc4ToCsv",
@@ -359,17 +359,13 @@
 								"secureInput": false
 							},
 							"userProperties": [],
-							"linkedServiceName": {
-								"referenceName": "AzureAutomationLinkedService",
-								"type": "LinkedServiceReference"
-							},
 							"typeProperties": {
-								"runbookName": "@pipeline().parameters.automationRunbookName",
-								"parameters": {
-									"ClientName": "@item()[pipeline().parameters.clientNameColumn]",
-									"ClientFolder": "@concat(pipeline().parameters.blobBaseFolder, '/', item()[pipeline().parameters.clientNameColumn])",
-									"OutputFileName": "@pipeline().parameters.xlsxFileName"
-								}
+								"url": "@pipeline().parameters.powerAutomateTriggerUrl",
+								"method": "POST",
+								"headers": {
+									"Content-Type": "application/json"
+								},
+								"body": "@concat('{\"ClientName\":\"', item()[pipeline().parameters.clientNameColumn], '\"}')"
 							}
 						},
 						{
@@ -453,9 +449,9 @@
 				"type": "string",
 				"defaultValue": "clients"
 			},
-			"automationRunbookName": {
+			"powerAutomateTriggerUrl": {
 				"type": "string",
-				"defaultValue": "BuildClientWorkbook"
+				"defaultValue": "https://example.com/power-automate-trigger"
 			},
 			"xlsxFileName": {
 				"type": "string",
