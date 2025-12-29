@@ -1,0 +1,26 @@
+{
+  "name": "SharePointXlsxSink",
+  "properties": {
+    "linkedServiceName": {
+      "referenceName": "SharePointOnlineLinkedService",
+      "type": "LinkedServiceReference"
+    },
+    "parameters": {
+      "folderPath": {
+        "type": "string"
+      },
+      "fileName": {
+        "type": "string"
+      },
+      "listName": {
+        "type": "string"
+      }
+    },
+    "type": "SharePointOnlineList",
+    "typeProperties": {
+      "listName": "@dataset().listName",
+      "folderPath": "@dataset().folderPath",
+      "fileName": "@dataset().fileName"
+    }
+  }
+}

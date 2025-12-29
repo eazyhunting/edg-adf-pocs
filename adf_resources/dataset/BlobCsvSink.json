@@ -1,0 +1,29 @@
+{
+  "name": "BlobCsvSink",
+  "properties": {
+    "linkedServiceName": {
+      "referenceName": "AzureBlobStorageLinkedService",
+      "type": "LinkedServiceReference"
+    },
+    "parameters": {
+      "folderPath": {
+        "type": "string"
+      },
+      "fileName": {
+        "type": "string"
+      }
+    },
+    "type": "DelimitedText",
+    "typeProperties": {
+      "location": {
+        "type": "AzureBlobStorageLocation",
+        "folderPath": "@dataset().folderPath",
+        "fileName": "@dataset().fileName"
+      },
+      "columnDelimiter": ",",
+      "rowDelimiter": "\n",
+      "firstRowAsHeader": true
+    },
+    "schema": []
+  }
+}

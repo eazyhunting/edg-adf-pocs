@@ -1,0 +1,14 @@
+{
+  "name": "AzureBlobStorageLinkedService",
+  "properties": {
+    "type": "AzureBlobStorage",
+    "parameters": {
+      "connectionString": {
+        "type": "string"
+      }
+    },
+    "typeProperties": {
+      "connectionString": "@{linkedService().connectionString}"
+    }
+  }
+}

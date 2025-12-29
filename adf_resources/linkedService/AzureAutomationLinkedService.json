@@ -1,0 +1,41 @@
+{
+  "name": "AzureAutomationLinkedService",
+  "properties": {
+    "type": "AzureAutomation",
+    "parameters": {
+      "serviceUri": {
+        "type": "string"
+      },
+      "subscriptionId": {
+        "type": "string"
+      },
+      "resourceGroupName": {
+        "type": "string"
+      },
+      "automationAccountName": {
+        "type": "string"
+      },
+      "tenant": {
+        "type": "string"
+      },
+      "servicePrincipalId": {
+        "type": "string"
+      },
+      "servicePrincipalKey": {
+        "type": "secureString"
+      }
+    },
+    "typeProperties": {
+      "serviceUri": "@{linkedService().serviceUri}",
+      "subscriptionId": "@{linkedService().subscriptionId}",
+      "resourceGroupName": "@{linkedService().resourceGroupName}",
+      "automationAccountName": "@{linkedService().automationAccountName}",
+      "tenant": "@{linkedService().tenant}",
+      "servicePrincipalId": "@{linkedService().servicePrincipalId}",
+      "servicePrincipalKey": {
+        "type": "SecureString",
+        "value": "@{linkedService().servicePrincipalKey}"
+      }
+    }
+  }
+}

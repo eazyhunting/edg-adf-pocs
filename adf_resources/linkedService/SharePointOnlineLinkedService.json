@@ -1,0 +1,29 @@
+{
+  "name": "SharePointOnlineLinkedService",
+  "properties": {
+    "type": "SharePointOnlineList",
+    "parameters": {
+      "siteUrl": {
+        "type": "string"
+      },
+      "tenantId": {
+        "type": "string"
+      },
+      "servicePrincipalId": {
+        "type": "string"
+      },
+      "servicePrincipalKey": {
+        "type": "secureString"
+      }
+    },
+    "typeProperties": {
+      "siteUrl": "@{linkedService().siteUrl}",
+      "tenantId": "@{linkedService().tenantId}",
+      "servicePrincipalId": "@{linkedService().servicePrincipalId}",
+      "servicePrincipalKey": {
+        "type": "SecureString",
+        "value": "@{linkedService().servicePrincipalKey}"
+      }
+    }
+  }
+}
