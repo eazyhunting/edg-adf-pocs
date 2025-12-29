@@ -1,9 +1,9 @@
 using System.Globalization;
-using System.Net;
-using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Azure.Storage.Blobs;
+using Azure.Storage.Blobs.Models;
 using CsvHelper;
 using CsvHelper.Configuration;
 using DocumentFormat.OpenXml;
@@ -20,9 +20,6 @@ namespace CombineCsvToSharePoint;
 public static class CombineCsvToSharePointFunction
 {
     private const int MaxSheetNameLength = 31;
-    private const int UploadChunkSize = 10 * 1024 * 1024;
-    private static readonly HttpClient HttpClient = new();
-
     [FunctionName("CombineCsvToSharePoint")]
     public static async Task<IActionResult> Run(
         [HttpTrigger(AuthorizationLevel.Function, "post", Route = "combine-csvs")] HttpRequest req,
@@ -45,46 +42,65 @@ public static class CombineCsvToSharePointFunction
             return new BadRequestObjectResult("Invalid JSON payload.");
         }
 
-        if (request?.CsvFiles == null || request.CsvFiles.Count == 0)
+        if (request == null)
         {
-            return new BadRequestObjectResult("Payload must include a non-empty 'csv_files' array.");
+            return new BadRequestObjectResult("Payload must include client_name and report_date.");
         }
 
-        foreach (var entry in request.CsvFiles)
+        if (string.IsNullOrWhiteSpace(request.ClientName))
         {
-            if (string.IsNullOrWhiteSpace(entry.Name) || string.IsNullOrWhiteSpace(entry.Url))
+            return new BadRequestObjectResult("Payload must include a non-empty 'client_name'.");
+        }
+
+        if (!DateOnly.TryParse(request.ReportDate, CultureInfo.InvariantCulture, DateTimeStyles.None, out var reportDate))
+        {
+            return new BadRequestObjectResult("Payload must include a valid 'report_date'.");
+        }
+
+        var containerClient = GetReportsContainerClient();
+        var clientSegment = SanitizeBlobSegment(request.ClientName);
+        var outputFilename = $"{clientSegment}_{reportDate:yyyyMMdd}.xlsx";
+        var outputBlobClient = containerClient.GetBlobClient($"{clientSegment}/{outputFilename}");
+
+        if (await outputBlobClient.ExistsAsync(cancellationToken))
+        {
+            return new OkObjectResult(new
             {
-                return new BadRequestObjectResult("Each csv_files entry must contain 'name' and 'url'.");
-            }
+                status = "exists",
+                output_filename = outputFilename,
+                xlsx_url = outputBlobClient.Uri.ToString(),
+            });
         }
 
-        var outputFilename = string.IsNullOrWhiteSpace(request.OutputFilename)
-            ? "combined.xlsx"
-            : request.OutputFilename;
+        var csvBlobs = await ListCsvBlobsAsync(containerClient, clientSegment, cancellationToken);
+        if (csvBlobs.Count == 0)
+        {
+            return new NotFoundObjectResult("No CSV files found for the specified client.");
+        }
 
         var tempFilePath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid()}.xlsx");
 
         try
         {
-            await BuildWorkbookAsync(request.CsvFiles, tempFilePath, cancellationToken);
-            var sharepointUrl = await UploadToSharePointAsync(tempFilePath, outputFilename, cancellationToken);
+            await BuildWorkbookAsync(csvBlobs, tempFilePath, cancellationToken);
+            await UploadToStorageAsync(outputBlobClient, tempFilePath, cancellationToken);
 
             return new OkObjectResult(new
             {
-                status = "uploaded",
+                status = "created",
                 output_filename = outputFilename,
-                sharepoint_url = sharepointUrl,
+                xlsx_url = outputBlobClient.Uri.ToString(),
             });
         }
         catch (HttpRequestException ex)
         {
-            log.LogError(ex, "Failed to download CSVs or upload to SharePoint.");
-            return new ObjectResult(ex.Message) { StatusCode = (int)HttpStatusCode.BadGateway };
+            log.LogError(ex, "Failed to download CSVs or upload to storage.");
+            return new ObjectResult(ex.Message) { StatusCode = StatusCodes.Status502BadGateway };
         }
         catch (Exception ex)
         {
             log.LogError(ex, "Unhandled error while creating Excel file.");
-            return new ObjectResult(ex.Message) { StatusCode = (int)HttpStatusCode.InternalServerError };
+            return new ObjectResult(ex.Message) { StatusCode = StatusCodes.Status500InternalServerError };
         }
         finally
         {
@@ -96,7 +112,7 @@ public static class CombineCsvToSharePointFunction
     }
 
     private static async Task BuildWorkbookAsync(
-        IReadOnlyList<CsvFile> csvFiles,
+        IReadOnlyList<CsvBlob> csvFiles,
         string outputPath,
         CancellationToken cancellationToken)
     {
@@ -114,7 +130,7 @@ public static class CombineCsvToSharePointFunction
             var sheetName = GetUniqueSheetName(Path.GetFileNameWithoutExtension(csvFile.Name), usedSheetNames);
             var worksheetPart = workbookPart.AddNewPart<WorksheetPart>();
 
-            await WriteCsvToWorksheetAsync(csvFile.Url, worksheetPart, cancellationToken);
+            await WriteCsvToWorksheetAsync(csvFile.BlobClient, worksheetPart, cancellationToken);
 
             var sheet = new Sheet
             {
@@ -129,11 +145,11 @@ public static class CombineCsvToSharePointFunction
     }
 
     private static async Task WriteCsvToWorksheetAsync(
-        string csvUrl,
+        BlobClient blobClient,
         WorksheetPart worksheetPart,
         CancellationToken cancellationToken)
     {
-        await using var csvStream = await HttpClient.GetStreamAsync(csvUrl, cancellationToken);
+        await using var csvStream = await blobClient.OpenReadAsync(cancellationToken: cancellationToken);
         using var reader = new StreamReader(csvStream);
         var config = new CsvConfiguration(CultureInfo.InvariantCulture)
         {
@@ -166,114 +182,14 @@ public static class CombineCsvToSharePointFunction
         writer.WriteEndElement();
     }
 
-    private static async Task<string> UploadToSharePointAsync(
+    private static async Task UploadToStorageAsync(
+        BlobClient outputBlobClient,
         string filePath,
-        string outputFilename,
         CancellationToken cancellationToken)
     {
-        var accessToken = await GetGraphAccessTokenAsync(cancellationToken);
-        var siteId = GetRequiredEnv("SHAREPOINT_SITE_ID");
-        var driveId = GetRequiredEnv("SHAREPOINT_DRIVE_ID");
-        var targetFolder = (Environment.GetEnvironmentVariable("SHAREPOINT_TARGET_FOLDER") ?? string.Empty).Trim('/');
-        var filePathOnDrive = string.IsNullOrWhiteSpace(targetFolder)
-            ? outputFilename
-            : $"{targetFolder}/{outputFilename}";
-
-        var uploadSessionUrl =
-            $"https://graph.microsoft.com/v1.0/sites/{siteId}/drives/{driveId}/root:/{filePathOnDrive}:/createUploadSession";
-
-        using var createRequest = new HttpRequestMessage(HttpMethod.Post, uploadSessionUrl)
-        {
-            Content = new StringContent(
-                JsonSerializer.Serialize(new
-                {
-                    item = new Dictionary<string, string>
-                    {
-                        ["@microsoft.graph.conflictBehavior"] = "replace",
-                        ["name"] = outputFilename,
-                    },
-                }),
-                Encoding.UTF8,
-                "application/json"),
-        };
-        createRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
-
-        using var createResponse = await HttpClient.SendAsync(createRequest, cancellationToken);
-        createResponse.EnsureSuccessStatusCode();
-        var createPayload = await createResponse.Content.ReadAsStringAsync(cancellationToken);
-        var uploadSession = JsonSerializer.Deserialize<UploadSession>(createPayload, JsonOptions());
-        if (uploadSession?.UploadUrl == null)
-        {
-            throw new InvalidOperationException("Upload session response missing upload URL.");
-        }
-
         await using var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read);
-        var totalLength = fileStream.Length;
-        var buffer = new byte[UploadChunkSize];
-        long offset = 0;
-        string? webUrl = null;
-
-        while (offset < totalLength)
-        {
-            var chunkSize = (int)Math.Min(UploadChunkSize, totalLength - offset);
-            var bytesRead = await fileStream.ReadAsync(buffer.AsMemory(0, chunkSize), cancellationToken);
-            if (bytesRead == 0)
-            {
-                break;
-            }
-
-            using var chunkRequest = new HttpRequestMessage(HttpMethod.Put, uploadSession.UploadUrl)
-            {
-                Content = new ByteArrayContent(buffer, 0, bytesRead),
-            };
-            chunkRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
-            chunkRequest.Content.Headers.ContentRange = new ContentRangeHeaderValue(offset, offset + bytesRead - 1, totalLength);
-            chunkRequest.Content.Headers.ContentLength = bytesRead;
-
-            using var chunkResponse = await HttpClient.SendAsync(chunkRequest, cancellationToken);
-            if (chunkResponse.StatusCode == HttpStatusCode.Created || chunkResponse.StatusCode == HttpStatusCode.OK)
-            {
-                var responsePayload = await chunkResponse.Content.ReadAsStringAsync(cancellationToken);
-                var uploadResult = JsonSerializer.Deserialize<UploadResult>(responsePayload, JsonOptions());
-                webUrl = uploadResult?.WebUrl;
-                break;
-            }
-
-            chunkResponse.EnsureSuccessStatusCode();
-            offset += bytesRead;
-        }
-
-        return webUrl ?? string.Empty;
-    }
-
-    private static async Task<string> GetGraphAccessTokenAsync(CancellationToken cancellationToken)
-    {
-        var tenantId = GetRequiredEnv("GRAPH_TENANT_ID");
-        var clientId = GetRequiredEnv("GRAPH_CLIENT_ID");
-        var clientSecret = GetRequiredEnv("GRAPH_CLIENT_SECRET");
-
-        var tokenUrl = $"https://login.microsoftonline.com/{tenantId}/oauth2/v2.0/token";
-        using var tokenRequest = new HttpRequestMessage(HttpMethod.Post, tokenUrl)
-        {
-            Content = new FormUrlEncodedContent(new Dictionary<string, string>
-            {
-                ["grant_type"] = "client_credentials",
-                ["client_id"] = clientId,
-                ["client_secret"] = clientSecret,
-                ["scope"] = "https://graph.microsoft.com/.default",
-            }),
-        };
-
-        using var response = await HttpClient.SendAsync(tokenRequest, cancellationToken);
-        response.EnsureSuccessStatusCode();
-        var payload = await response.Content.ReadAsStringAsync(cancellationToken);
-        var tokenResponse = JsonSerializer.Deserialize<TokenResponse>(payload, JsonOptions());
-        if (string.IsNullOrWhiteSpace(tokenResponse?.AccessToken))
-        {
-            throw new InvalidOperationException("Token response missing access token.");
-        }
-
-        return tokenResponse.AccessToken;
+        var headers = new BlobHttpHeaders { ContentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" };
+        await outputBlobClient.UploadAsync(fileStream, new BlobUploadOptions { HttpHeaders = headers }, cancellationToken);
     }
 
     private static string GetRequiredEnv(string name)
@@ -285,6 +201,40 @@ public static class CombineCsvToSharePointFunction
         }
 
         return value;
+    }
+
+    private static BlobContainerClient GetReportsContainerClient()
+    {
+        var connectionString = GetRequiredEnv("STORAGE_CONNECTION_STRING");
+        var containerName = (Environment.GetEnvironmentVariable("REPORTS_CONTAINER") ?? "reports").Trim();
+        if (string.IsNullOrWhiteSpace(containerName))
+        {
+            throw new InvalidOperationException("REPORTS_CONTAINER cannot be empty.");
+        }
+
+        return new BlobContainerClient(connectionString, containerName);
+    }
+
+    private static async Task<List<CsvBlob>> ListCsvBlobsAsync(
+        BlobContainerClient containerClient,
+        string clientSegment,
+        CancellationToken cancellationToken)
+    {
+        var prefix = $"{clientSegment}/";
+        var csvBlobs = new List<CsvBlob>();
+
+        await foreach (var blobItem in containerClient.GetBlobsAsync(prefix: prefix, cancellationToken: cancellationToken))
+        {
+            if (!blobItem.Name.EndsWith(".csv", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            csvBlobs.Add(new CsvBlob(Path.GetFileName(blobItem.Name), containerClient.GetBlobClient(blobItem.Name)));
+        }
+
+        csvBlobs.Sort((left, right) => string.Compare(left.Name, right.Name, StringComparison.OrdinalIgnoreCase));
+        return csvBlobs;
     }
 
     private static string GetUniqueSheetName(string name, HashSet<string> usedNames)
@@ -321,6 +271,25 @@ public static class CombineCsvToSharePointFunction
             : sanitized;
     }
 
+    private static string SanitizeBlobSegment(string segment)
+    {
+        var invalidChars = Path.GetInvalidFileNameChars();
+        var builder = new StringBuilder(segment.Length);
+        foreach (var ch in segment)
+        {
+            if (ch == '/' || ch == '\\' || invalidChars.Contains(ch))
+            {
+                builder.Append('_');
+                continue;
+            }
+
+            builder.Append(ch);
+        }
+
+        var sanitized = builder.ToString().Trim('_');
+        return string.IsNullOrWhiteSpace(sanitized) ? "client" : sanitized;
+    }
+
     private static JsonSerializerOptions JsonOptions() => new()
     {
         PropertyNameCaseInsensitive = true,
@@ -328,16 +297,8 @@ public static class CombineCsvToSharePointFunction
     };
 
     private sealed record CombineRequest(
-        [property: JsonPropertyName("csv_files")] List<CsvFile> CsvFiles,
-        [property: JsonPropertyName("output_filename")] string? OutputFilename);
+        [property: JsonPropertyName("client_name")] string ClientName,
+        [property: JsonPropertyName("report_date")] string ReportDate);
 
-    private sealed record CsvFile(
-        [property: JsonPropertyName("name")] string Name,
-        [property: JsonPropertyName("url")] string Url);
-
-    private sealed record TokenResponse([property: JsonPropertyName("access_token")] string AccessToken);
-
-    private sealed record UploadSession([property: JsonPropertyName("uploadUrl")] string UploadUrl);
-
-    private sealed record UploadResult([property: JsonPropertyName("webUrl")] string? WebUrl);
+    private sealed record CsvBlob(string Name, BlobClient BlobClient);
 }
