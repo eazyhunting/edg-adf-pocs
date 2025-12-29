@@ -74,10 +74,12 @@
 											}
 										},
 										"ReportDate": {
-											"type": "DateTime"
+											"type": "DateTime",
+											"value": null
 										},
 										"RowCount": {
-											"type": "Int32"
+											"type": "Int32",
+											"value": "250"
 										}
 									},
 									"isolationLevel": "ReadCommitted",
@@ -148,10 +150,12 @@
 											}
 										},
 										"ReportDate": {
-											"type": "DateTime"
+											"type": "DateTime",
+											"value": null
 										},
 										"RowCount": {
-											"type": "Int32"
+											"type": "Int32",
+											"value": "250"
 										}
 									},
 									"isolationLevel": "ReadCommitted",
@@ -219,10 +223,12 @@
 											"value": "@item().ClientId"
 										},
 										"ReportDate": {
-											"type": "DateTime"
+											"type": "DateTime",
+											"value": null
 										},
 										"RowCount": {
-											"type": "Int32"
+											"type": "Int32",
+											"value": "250"
 										}
 									},
 									"isolationLevel": "ReadCommitted",
@@ -290,10 +296,12 @@
 											"value": "@item().ClientId"
 										},
 										"ReportDate": {
-											"type": "DateTime"
+											"type": "DateTime",
+											"value": null
 										},
 										"RowCount": {
-											"type": "Int32"
+											"type": "Int32",
+											"value": "250"
 										}
 									},
 									"isolationLevel": "ReadCommitted",
@@ -423,7 +431,7 @@
 			},
 			"clientNameColumn": {
 				"type": "string",
-				"defaultValue": "ClientName"
+				"defaultValue": "ClientFolderName"
 			},
 			"clientProc1": {
 				"type": "string",
