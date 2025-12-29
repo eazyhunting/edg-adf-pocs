@@ -1,0 +1,14 @@
+{
+  "name": "AzureSqlDatabaseLinkedService",
+  "properties": {
+    "type": "AzureSqlDatabase",
+    "parameters": {
+      "connectionString": {
+        "type": "string"
+      }
+    },
+    "typeProperties": {
+      "connectionString": "@{linkedService().connectionString}"
+    }
+  }
+}
