@@ -67,7 +67,11 @@
 									"sqlReaderStoredProcedureName": "[dbo].[usp_ClientReport_Fake]",
 									"storedProcedureParameters": {
 										"ClientId": {
-											"type": "Int32"
+											"type": "Int32",
+											"value": {
+												"value": "@item().ClientId",
+												"type": "Expression"
+											}
 										},
 										"ReportDate": {
 											"type": "DateTime"
@@ -76,6 +80,7 @@
 											"type": "Int32"
 										}
 									},
+									"isolationLevel": "ReadCommitted",
 									"partitionOption": "None",
 									"storedProcedureName": "@pipeline().parameters.clientProc1"
 								},
@@ -133,6 +138,23 @@
 							"typeProperties": {
 								"source": {
 									"type": "SqlSource",
+									"sqlReaderStoredProcedureName": "[dbo].[usp_ClientReport_Fake2]",
+									"storedProcedureParameters": {
+										"ClientId": {
+											"type": "Int32",
+											"value": {
+												"value": "@item().ClientId",
+												"type": "Expression"
+											}
+										},
+										"ReportDate": {
+											"type": "DateTime"
+										},
+										"RowCount": {
+											"type": "Int32"
+										}
+									},
+									"isolationLevel": "ReadCommitted",
 									"partitionOption": "None",
 									"storedProcedureName": "@pipeline().parameters.clientProc2"
 								},
@@ -190,6 +212,20 @@
 							"typeProperties": {
 								"source": {
 									"type": "SqlSource",
+									"sqlReaderStoredProcedureName": "[dbo].[usp_ClientReport_Fake3]",
+									"storedProcedureParameters": {
+										"ClientId": {
+											"type": "Int32",
+											"value": "@item().ClientId"
+										},
+										"ReportDate": {
+											"type": "DateTime"
+										},
+										"RowCount": {
+											"type": "Int32"
+										}
+									},
+									"isolationLevel": "ReadCommitted",
 									"partitionOption": "None",
 									"storedProcedureName": "@pipeline().parameters.clientProc3"
 								},
@@ -247,6 +283,20 @@
 							"typeProperties": {
 								"source": {
 									"type": "SqlSource",
+									"sqlReaderStoredProcedureName": "[dbo].[usp_ClientReport_Fake4]",
+									"storedProcedureParameters": {
+										"ClientId": {
+											"type": "Int32",
+											"value": "@item().ClientId"
+										},
+										"ReportDate": {
+											"type": "DateTime"
+										},
+										"RowCount": {
+											"type": "Int32"
+										}
+									},
+									"isolationLevel": "ReadCommitted",
 									"partitionOption": "None",
 									"storedProcedureName": "@pipeline().parameters.clientProc4"
 								},
