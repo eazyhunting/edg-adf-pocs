@@ -1,0 +1,9 @@
+{
+	"name": "edggtiadfpoc",
+	"location": "eastus",
+	"identity": {
+		"type": "SystemAssigned",
+		"principalId": "42b79e2f-eb0f-4f63-9d7f-f277c0c91fe9",
+		"tenantId": "4a30d6d0-5c19-437c-9fde-aab031e57f76"
+	}
+}

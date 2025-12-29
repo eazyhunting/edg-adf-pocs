@@ -1,0 +1,362 @@
+{
+  "name": "ClientReportingPipeline",
+  "properties": {
+    "parameters": {
+      "getClientsProc": {
+        "type": "string",
+        "defaultValue": "dbo.usp_GetClientNames"
+      },
+      "clientNameColumn": {
+        "type": "string",
+        "defaultValue": "ClientName"
+      },
+      "clientProc1": {
+        "type": "string",
+        "defaultValue": "dbo.usp_ClientProc1"
+      },
+      "clientProc2": {
+        "type": "string",
+        "defaultValue": "dbo.usp_ClientProc2"
+      },
+      "clientProc3": {
+        "type": "string",
+        "defaultValue": "dbo.usp_ClientProc3"
+      },
+      "clientProc4": {
+        "type": "string",
+        "defaultValue": "dbo.usp_ClientProc4"
+      },
+      "blobBaseFolder": {
+        "type": "string",
+        "defaultValue": "clients"
+      },
+      "automationRunbookName": {
+        "type": "string",
+        "defaultValue": "BuildClientWorkbook"
+      },
+      "xlsxFileName": {
+        "type": "string",
+        "defaultValue": "ClientReport.xlsx"
+      },
+      "sharePointFolderPath": {
+        "type": "string",
+        "defaultValue": "Shared Documents/Client Reports"
+      },
+      "sharePointListName": {
+        "type": "string",
+        "defaultValue": "Documents"
+      }
+    },
+    "activities": [
+      {
+        "name": "GetClientNames",
+        "type": "Lookup",
+        "typeProperties": {
+          "source": {
+            "type": "SqlSource",
+            "storedProcedureName": "@pipeline().parameters.getClientsProc"
+          },
+          "dataset": {
+            "referenceName": "AzureSqlStoredProcSource",
+            "type": "DatasetReference",
+            "parameters": {
+              "tableName": "dbo.Placeholder"
+            }
+          },
+          "firstRowOnly": false
+        }
+      },
+      {
+        "name": "ForEachClient",
+        "type": "ForEach",
+        "dependsOn": [
+          {
+            "activity": "GetClientNames",
+            "dependencyConditions": [
+              "Succeeded"
+            ]
+          }
+        ],
+        "typeProperties": {
+          "items": "@activity('GetClientNames').output.value",
+          "isSequential": true,
+          "activities": [
+            {
+              "name": "ClientProc1ToCsv",
+              "type": "Copy",
+              "typeProperties": {
+                "source": {
+                  "type": "SqlSource",
+                  "storedProcedureName": "@pipeline().parameters.clientProc1",
+                  "storedProcedureParameters": {
+                    "ClientName": {
+                      "type": "String",
+                      "value": "@item()[pipeline().parameters.clientNameColumn]"
+                    }
+                  }
+                },
+                "sink": {
+                  "type": "DelimitedTextSink",
+                  "storeSettings": {
+                    "type": "AzureBlobStorageWriteSettings"
+                  },
+                  "formatSettings": {
+                    "type": "DelimitedTextWriteSettings",
+                    "quoteAllText": true,
+                    "fileExtension": ".csv"
+                  }
+                }
+              },
+              "inputs": [
+                {
+                  "referenceName": "AzureSqlStoredProcSource",
+                  "type": "DatasetReference",
+                  "parameters": {
+                    "tableName": "dbo.Placeholder"
+                  }
+                }
+              ],
+              "outputs": [
+                {
+                  "referenceName": "BlobCsvSink",
+                  "type": "DatasetReference",
+                  "parameters": {
+                    "folderPath": "@concat(pipeline().parameters.blobBaseFolder, '/', item()[pipeline().parameters.clientNameColumn])",
+                    "fileName": "ClientProc1.csv"
+                  }
+                }
+              ]
+            },
+            {
+              "name": "ClientProc2ToCsv",
+              "type": "Copy",
+              "dependsOn": [
+                {
+                  "activity": "ClientProc1ToCsv",
+                  "dependencyConditions": [
+                    "Succeeded"
+                  ]
+                }
+              ],
+              "typeProperties": {
+                "source": {
+                  "type": "SqlSource",
+                  "storedProcedureName": "@pipeline().parameters.clientProc2",
+                  "storedProcedureParameters": {
+                    "ClientName": {
+                      "type": "String",
+                      "value": "@item()[pipeline().parameters.clientNameColumn]"
+                    }
+                  }
+                },
+                "sink": {
+                  "type": "DelimitedTextSink",
+                  "storeSettings": {
+                    "type": "AzureBlobStorageWriteSettings"
+                  },
+                  "formatSettings": {
+                    "type": "DelimitedTextWriteSettings",
+                    "quoteAllText": true,
+                    "fileExtension": ".csv"
+                  }
+                }
+              },
+              "inputs": [
+                {
+                  "referenceName": "AzureSqlStoredProcSource",
+                  "type": "DatasetReference",
+                  "parameters": {
+                    "tableName": "dbo.Placeholder"
+                  }
+                }
+              ],
+              "outputs": [
+                {
+                  "referenceName": "BlobCsvSink",
+                  "type": "DatasetReference",
+                  "parameters": {
+                    "folderPath": "@concat(pipeline().parameters.blobBaseFolder, '/', item()[pipeline().parameters.clientNameColumn])",
+                    "fileName": "ClientProc2.csv"
+                  }
+                }
+              ]
+            },
+            {
+              "name": "ClientProc3ToCsv",
+              "type": "Copy",
+              "dependsOn": [
+                {
+                  "activity": "ClientProc2ToCsv",
+                  "dependencyConditions": [
+                    "Succeeded"
+                  ]
+                }
+              ],
+              "typeProperties": {
+                "source": {
+                  "type": "SqlSource",
+                  "storedProcedureName": "@pipeline().parameters.clientProc3",
+                  "storedProcedureParameters": {
+                    "ClientName": {
+                      "type": "String",
+                      "value": "@item()[pipeline().parameters.clientNameColumn]"
+                    }
+                  }
+                },
+                "sink": {
+                  "type": "DelimitedTextSink",
+                  "storeSettings": {
+                    "type": "AzureBlobStorageWriteSettings"
+                  },
+                  "formatSettings": {
+                    "type": "DelimitedTextWriteSettings",
+                    "quoteAllText": true,
+                    "fileExtension": ".csv"
+                  }
+                }
+              },
+              "inputs": [
+                {
+                  "referenceName": "AzureSqlStoredProcSource",
+                  "type": "DatasetReference",
+                  "parameters": {
+                    "tableName": "dbo.Placeholder"
+                  }
+                }
+              ],
+              "outputs": [
+                {
+                  "referenceName": "BlobCsvSink",
+                  "type": "DatasetReference",
+                  "parameters": {
+                    "folderPath": "@concat(pipeline().parameters.blobBaseFolder, '/', item()[pipeline().parameters.clientNameColumn])",
+                    "fileName": "ClientProc3.csv"
+                  }
+                }
+              ]
+            },
+            {
+              "name": "ClientProc4ToCsv",
+              "type": "Copy",
+              "dependsOn": [
+                {
+                  "activity": "ClientProc3ToCsv",
+                  "dependencyConditions": [
+                    "Succeeded"
+                  ]
+                }
+              ],
+              "typeProperties": {
+                "source": {
+                  "type": "SqlSource",
+                  "storedProcedureName": "@pipeline().parameters.clientProc4",
+                  "storedProcedureParameters": {
+                    "ClientName": {
+                      "type": "String",
+                      "value": "@item()[pipeline().parameters.clientNameColumn]"
+                    }
+                  }
+                },
+                "sink": {
+                  "type": "DelimitedTextSink",
+                  "storeSettings": {
+                    "type": "AzureBlobStorageWriteSettings"
+                  },
+                  "formatSettings": {
+                    "type": "DelimitedTextWriteSettings",
+                    "quoteAllText": true,
+                    "fileExtension": ".csv"
+                  }
+                }
+              },
+              "inputs": [
+                {
+                  "referenceName": "AzureSqlStoredProcSource",
+                  "type": "DatasetReference",
+                  "parameters": {
+                    "tableName": "dbo.Placeholder"
+                  }
+                }
+              ],
+              "outputs": [
+                {
+                  "referenceName": "BlobCsvSink",
+                  "type": "DatasetReference",
+                  "parameters": {
+                    "folderPath": "@concat(pipeline().parameters.blobBaseFolder, '/', item()[pipeline().parameters.clientNameColumn])",
+                    "fileName": "ClientProc4.csv"
+                  }
+                }
+              ]
+            },
+            {
+              "name": "BuildClientWorkbook",
+              "type": "AzureAutomation",
+              "dependsOn": [
+                {
+                  "activity": "ClientProc4ToCsv",
+                  "dependencyConditions": [
+                    "Succeeded"
+                  ]
+                }
+              ],
+              "linkedServiceName": {
+                "referenceName": "AzureAutomationLinkedService",
+                "type": "LinkedServiceReference"
+              },
+              "typeProperties": {
+                "runbookName": "@pipeline().parameters.automationRunbookName",
+                "parameters": {
+                  "ClientName": "@item()[pipeline().parameters.clientNameColumn]",
+                  "ClientFolder": "@concat(pipeline().parameters.blobBaseFolder, '/', item()[pipeline().parameters.clientNameColumn])",
+                  "OutputFileName": "@pipeline().parameters.xlsxFileName"
+                }
+              }
+            },
+            {
+              "name": "CopyWorkbookToSharePoint",
+              "type": "Copy",
+              "dependsOn": [
+                {
+                  "activity": "BuildClientWorkbook",
+                  "dependencyConditions": [
+                    "Succeeded"
+                  ]
+                }
+              ],
+              "typeProperties": {
+                "source": {
+                  "type": "BinarySource"
+                },
+                "sink": {
+                  "type": "BinarySink"
+                }
+              },
+              "inputs": [
+                {
+                  "referenceName": "BlobXlsxSource",
+                  "type": "DatasetReference",
+                  "parameters": {
+                    "folderPath": "@concat(pipeline().parameters.blobBaseFolder, '/', item()[pipeline().parameters.clientNameColumn])",
+                    "fileName": "@pipeline().parameters.xlsxFileName"
+                  }
+                }
+              ],
+              "outputs": [
+                {
+                  "referenceName": "SharePointXlsxSink",
+                  "type": "DatasetReference",
+                  "parameters": {
+                    "folderPath": "@pipeline().parameters.sharePointFolderPath",
+                    "fileName": "@concat(item()[pipeline().parameters.clientNameColumn], '-', pipeline().parameters.xlsxFileName)",
+                    "listName": "@pipeline().parameters.sharePointListName"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      }
+    ]
+  }
+}
