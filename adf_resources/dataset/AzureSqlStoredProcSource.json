@@ -1,18 +1,22 @@
 {
-  "name": "AzureSqlStoredProcSource",
-  "properties": {
-    "linkedServiceName": {
-      "referenceName": "AzureSqlDatabaseLinkedService",
-      "type": "LinkedServiceReference"
-    },
-    "parameters": {
-      "tableName": {
-        "type": "string"
-      }
-    },
-    "type": "AzureSqlTable",
-    "typeProperties": {
-      "tableName": "@dataset().tableName"
-    }
-  }
+	"name": "AzureSqlStoredProcSource",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "AzureSqlDatabase1",
+			"type": "LinkedServiceReference"
+		},
+		"parameters": {
+			"tableName": {
+				"type": "string"
+			}
+		},
+		"annotations": [],
+		"type": "AzureSqlTable",
+		"typeProperties": {
+			"tableName": {
+				"value": "@dataset().tableName",
+				"type": "Expression"
+			}
+		}
+	}
 }
