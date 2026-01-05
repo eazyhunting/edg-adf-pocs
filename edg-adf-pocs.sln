@@ -1,0 +1,35 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.5.2.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CsvMergeFunction", "CsvMergeFunction\CsvMergeFunction.csproj", "{86BB3B15-0BD7-5611-6107-BC418B554B4B}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "function_app", "function_app", "{AF75A822-9FEE-0CC9-074E-DCE55F01FAF8}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CombineCsvToSharePoint", "function_app\CombineCsvToSharePoint.csproj", "{A90E280D-918B-B016-E71C-354BD9963D36}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{86BB3B15-0BD7-5611-6107-BC418B554B4B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{86BB3B15-0BD7-5611-6107-BC418B554B4B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{86BB3B15-0BD7-5611-6107-BC418B554B4B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{86BB3B15-0BD7-5611-6107-BC418B554B4B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A90E280D-918B-B016-E71C-354BD9963D36}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A90E280D-918B-B016-E71C-354BD9963D36}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A90E280D-918B-B016-E71C-354BD9963D36}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A90E280D-918B-B016-E71C-354BD9963D36}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{A90E280D-918B-B016-E71C-354BD9963D36} = {AF75A822-9FEE-0CC9-074E-DCE55F01FAF8}
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {201DF641-EB9A-4814-9D0E-12B90A91177E}
+	EndGlobalSection
+EndGlobal

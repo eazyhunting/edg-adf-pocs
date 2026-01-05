@@ -23,7 +23,7 @@ public class MergeCsvFunction
 
     [Function("MergeCsv")]
     public async Task<HttpResponseData> Run(
-        [HttpTrigger(AuthorizationLevel.Function, "get", "post")] HttpRequestData request)
+        [HttpTrigger(AuthorizationLevel.Function, "post")] HttpRequestData request)
     {
         var mergeRequest = await MergeRequest.FromHttpRequestAsync(request);
         if (mergeRequest is null)
@@ -33,8 +33,8 @@ public class MergeCsvFunction
             return badResponse;
         }
 
-        var containerName = mergeRequest.ClientName.Trim().ToLowerInvariant();
-        var folderPath = mergeRequest.Date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+        var containerName = "reports";
+        var folderPath = $"{mergeRequest.ClientName.Trim().ToLowerInvariant()}/{mergeRequest.Date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)}";
         _logger.LogInformation("Merging CSV files for container {Container} and folder {Folder}.", containerName, folderPath);
 
         var containerClient = _blobServiceClient.GetBlobContainerClient(containerName);
