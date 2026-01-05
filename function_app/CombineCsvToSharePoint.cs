@@ -59,7 +59,7 @@ public static class CombineCsvToSharePointFunction
 
         var containerClient = GetReportsContainerClient();
         var clientSegment = SanitizeBlobSegment(request.ClientName);
-        var outputFilename = $"{clientSegment}_{reportDate:yyyyMMdd}.xlsx";
+        var outputFilename = "ActivityReport.xlsx";
         var outputBlobClient = containerClient.GetBlobClient($"{clientSegment}/{outputFilename}");
 
         if (await outputBlobClient.ExistsAsync(cancellationToken))
