@@ -1,9 +1,11 @@
 using System.Globalization;
 using Azure.Storage.Blobs;
-using ClosedXML.Excel;
 using CsvHelper;
 using CsvHelper.Configuration;
 using CsvHelper.Data;
+using DocumentFormat.OpenXml;
+using DocumentFormat.OpenXml.Packaging;
+using DocumentFormat.OpenXml.Spreadsheet;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Http;
 using Microsoft.Extensions.Logging;
@@ -40,7 +42,7 @@ public class MergeCsvFunction
         var containerClient = _blobServiceClient.GetBlobContainerClient(containerName);
         var blobs = containerClient.GetBlobsAsync(prefix: $"{folderPath}/");
 
-        using var workbook = new XLWorkbook();
+        var tables = new List<(string WorksheetName, System.Data.DataTable Table)>();
         var csvFound = false;
 
         await foreach (var blobItem in blobs)
@@ -66,8 +68,7 @@ public class MergeCsvFunction
             table.Load(csvDataReader);
 
             var worksheetName = GetWorksheetName(blobItem.Name);
-            var worksheet = workbook.Worksheets.Add(worksheetName);
-            worksheet.Cell(1, 1).InsertTable(table, true);
+            tables.Add((worksheetName, table));
         }
 
         if (!csvFound)
@@ -78,7 +79,20 @@ public class MergeCsvFunction
         }
 
         await using var outputStream = new MemoryStream();
-        workbook.SaveAs(outputStream);
+        using (var document = SpreadsheetDocument.Create(outputStream, SpreadsheetDocumentType.Workbook))
+        {
+            var workbookPart = document.AddWorkbookPart();
+            workbookPart.Workbook = new Workbook();
+            var sheets = workbookPart.Workbook.AppendChild(new Sheets());
+            uint sheetId = 1;
+
+            foreach (var (worksheetName, table) in tables)
+            {
+                AppendWorksheet(workbookPart, sheets, worksheetName, table, sheetId++);
+            }
+
+            workbookPart.Workbook.Save();
+        }
         outputStream.Position = 0;
 
         var response = request.CreateResponse(System.Net.HttpStatusCode.OK);
@@ -86,6 +100,56 @@ public class MergeCsvFunction
         response.Headers.Add("Content-Disposition", $"attachment; filename=merged-{containerName}-{folderPath}.xlsx");
         await response.WriteBytesAsync(outputStream.ToArray());
         return response;
+    }
+
+    private static void AppendWorksheet(
+        WorkbookPart workbookPart,
+        Sheets sheets,
+        string worksheetName,
+        System.Data.DataTable table,
+        uint sheetId)
+    {
+        var worksheetPart = workbookPart.AddNewPart<WorksheetPart>();
+        var sheetData = new SheetData();
+        worksheetPart.Worksheet = new Worksheet(sheetData);
+
+        var headerRow = new Row();
+        foreach (System.Data.DataColumn column in table.Columns)
+        {
+            headerRow.Append(CreateTextCell(column.ColumnName));
+        }
+
+        sheetData.Append(headerRow);
+
+        foreach (System.Data.DataRow row in table.Rows)
+        {
+            var dataRow = new Row();
+            foreach (System.Data.DataColumn column in table.Columns)
+            {
+                dataRow.Append(CreateTextCell(row[column]?.ToString() ?? string.Empty));
+            }
+
+            sheetData.Append(dataRow);
+        }
+
+        worksheetPart.Worksheet.Save();
+
+        var sheet = new Sheet
+        {
+            Id = workbookPart.GetIdOfPart(worksheetPart),
+            SheetId = sheetId,
+            Name = worksheetName
+        };
+        sheets.Append(sheet);
+    }
+
+    private static Cell CreateTextCell(string text)
+    {
+        return new Cell
+        {
+            DataType = CellValues.String,
+            CellValue = new CellValue(text)
+        };
     }
 
     private static string GetWorksheetName(string blobName)
