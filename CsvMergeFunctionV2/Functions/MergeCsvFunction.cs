@@ -35,12 +35,12 @@ public class MergeCsvFunction
         }
 
         var containerName = mergeRequest.ContainerName.Trim().ToLowerInvariant();
-        var folderPath = mergeRequest.FolderPath.Trim().Trim('/');
+        var folderPath = mergeRequest.ClientName.Trim().Trim('/');
         var prefix = string.IsNullOrWhiteSpace(folderPath) ? string.Empty : $"{folderPath}/";
         _logger.LogInformation("Merging CSV files for container {Container} and folder {Folder}.", containerName, folderPath);
 
         var containerClient = _blobServiceClient.GetBlobContainerClient(containerName);
-        var blobs = containerClient.GetBlobsAsync(prefix: prefix);
+        var blobs = containerClient.GetBlobsAsync(prefix: $"clients/{folderPath}");
 
         var tables = new List<(string WorksheetName, System.Data.DataTable Table)>();
         var csvFound = false;
@@ -165,7 +165,7 @@ public class MergeCsvFunction
         return sanitized.Length <= 31 ? sanitized : sanitized[..31];
     }
 
-    private sealed record MergeRequest(string ContainerName, string FolderPath)
+    private sealed record MergeRequest(string ContainerName, string ClientName)
     {
         public static async Task<MergeRequest?> FromHttpRequestAsync(HttpRequestData request)
         {
@@ -190,6 +190,11 @@ public class MergeCsvFunction
                 {
                     return parsedRequest;
                 }
+            }
+
+            if (!string.IsNullOrWhiteSpace(containerName) && !string.IsNullOrWhiteSpace(clientName))
+            {
+                return new MergeRequest(containerName, clientName);
             }
 
             if (!string.IsNullOrWhiteSpace(containerName) && !string.IsNullOrWhiteSpace(folderPath))
