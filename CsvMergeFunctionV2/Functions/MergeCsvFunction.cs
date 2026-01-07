@@ -109,8 +109,7 @@ public class MergeCsvFunction
                 new BlobHttpHeaders
                 {
                     ContentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                },
-                overwrite: true);
+                });
         }
 
         var response = request.CreateResponse(System.Net.HttpStatusCode.OK);
