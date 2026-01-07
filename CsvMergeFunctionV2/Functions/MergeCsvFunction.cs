@@ -30,7 +30,7 @@ public class MergeCsvFunction
         if (mergeRequest is null)
         {
             var badResponse = request.CreateResponse(System.Net.HttpStatusCode.BadRequest);
-            await badResponse.WriteStringAsync("Provide 'blobUrl' or 'containerName' and 'folderPath' parameters. 'date' is optional.");
+            await badResponse.WriteStringAsync("Provide 'blobUrl' and 'clientName' parameters. 'date' is optional.");
             return badResponse;
         }
 
@@ -171,19 +171,21 @@ public class MergeCsvFunction
         {
             var query = System.Web.HttpUtility.ParseQueryString(request.Url.Query);
             var blobUrl = query["blobUrl"];
-            var containerName = query["containerName"] ?? query["clientName"];
+            var containerName = query["containerName"] ?? "reports";
             var folderPath = query["folderPath"];
+            var clientName = query["clientName"];
             var dateValue = query["date"];
 
             var body = await request.ReadFromJsonAsync<MergeRequestPayload>();
             blobUrl = body?.BlobUrl ?? blobUrl;
-            containerName = body?.ContainerName ?? body?.ClientName ?? containerName;
+            containerName = body?.ContainerName ?? containerName;
             folderPath = body?.FolderPath ?? folderPath;
+            clientName = body?.ClientName ?? clientName;
             dateValue = body?.Date ?? dateValue;
 
             if (!string.IsNullOrWhiteSpace(blobUrl))
             {
-                var parsedRequest = ParseBlobUrl(blobUrl);
+                var parsedRequest = ParseBlobUrl(blobUrl, clientName);
                 if (parsedRequest is not null)
                 {
                     return parsedRequest;
@@ -203,7 +205,7 @@ public class MergeCsvFunction
             return null;
         }
 
-        private static MergeRequest? ParseBlobUrl(string blobUrl)
+        private static MergeRequest? ParseBlobUrl(string blobUrl, string? clientName)
         {
             if (!Uri.TryCreate(blobUrl, UriKind.Absolute, out var uri))
             {
@@ -212,14 +214,14 @@ public class MergeCsvFunction
 
             var path = uri.AbsolutePath.Trim('/');
             var segments = path.Split('/', StringSplitOptions.RemoveEmptyEntries);
-            if (segments.Length < 2)
+            if (segments.Length < 2 || string.IsNullOrWhiteSpace(clientName))
             {
                 return null;
             }
 
             var containerName = segments[0];
-            var blobPath = string.Join("/", segments.Skip(1));
-            var folderPath = Path.GetDirectoryName(blobPath)?.Replace('\\', '/') ?? string.Empty;
+            var baseFolder = segments[1];
+            var folderPath = $"{baseFolder}/{clientName}";
             return new MergeRequest(containerName, folderPath);
         }
     }
