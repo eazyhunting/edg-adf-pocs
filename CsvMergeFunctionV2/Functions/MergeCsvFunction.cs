@@ -30,16 +30,17 @@ public class MergeCsvFunction
         if (mergeRequest is null)
         {
             var badResponse = request.CreateResponse(System.Net.HttpStatusCode.BadRequest);
-            await badResponse.WriteStringAsync("Provide 'clientName' and 'date' parameters.");
+            await badResponse.WriteStringAsync("Provide 'blobUrl' or 'containerName' and 'folderPath' parameters. 'date' is optional.");
             return badResponse;
         }
 
-        var containerName = mergeRequest.ClientName.Trim().ToLowerInvariant();
-        var folderPath = mergeRequest.Date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+        var containerName = mergeRequest.ContainerName.Trim().ToLowerInvariant();
+        var folderPath = mergeRequest.FolderPath.Trim().Trim('/');
+        var prefix = string.IsNullOrWhiteSpace(folderPath) ? string.Empty : $"{folderPath}/";
         _logger.LogInformation("Merging CSV files for container {Container} and folder {Folder}.", containerName, folderPath);
 
         var containerClient = _blobServiceClient.GetBlobContainerClient(containerName);
-        var blobs = containerClient.GetBlobsAsync(prefix: $"{folderPath}/");
+        var blobs = containerClient.GetBlobsAsync(prefix: prefix);
 
         var tables = new List<(string WorksheetName, System.Data.DataTable Table)>();
         var csvFound = false;
@@ -73,7 +74,7 @@ public class MergeCsvFunction
         if (!csvFound)
         {
             var notFoundResponse = request.CreateResponse(System.Net.HttpStatusCode.NotFound);
-            await notFoundResponse.WriteStringAsync("No CSV files found for the provided client and date.");
+            await notFoundResponse.WriteStringAsync("No CSV files found for the provided folder path.");
             return notFoundResponse;
         }
 
@@ -96,7 +97,8 @@ public class MergeCsvFunction
 
         var response = request.CreateResponse(System.Net.HttpStatusCode.OK);
         response.Headers.Add("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-        response.Headers.Add("Content-Disposition", $"attachment; filename=merged-{containerName}-{folderPath}.xlsx");
+        var folderLabel = string.IsNullOrWhiteSpace(folderPath) ? "root" : folderPath.Replace('/', '-');
+        response.Headers.Add("Content-Disposition", $"attachment; filename=merged-{containerName}-{folderLabel}.xlsx");
         await response.WriteBytesAsync(outputStream.ToArray());
         return response;
     }
@@ -163,37 +165,70 @@ public class MergeCsvFunction
         return sanitized.Length <= 31 ? sanitized : sanitized[..31];
     }
 
-    private sealed record MergeRequest(string ClientName, DateTime Date)
+    private sealed record MergeRequest(string ContainerName, string FolderPath)
     {
         public static async Task<MergeRequest?> FromHttpRequestAsync(HttpRequestData request)
         {
             var query = System.Web.HttpUtility.ParseQueryString(request.Url.Query);
-            var clientName = query["clientName"];
+            var blobUrl = query["blobUrl"];
+            var containerName = query["containerName"] ?? query["clientName"];
+            var folderPath = query["folderPath"];
             var dateValue = query["date"];
 
-            if (string.IsNullOrWhiteSpace(clientName) || string.IsNullOrWhiteSpace(dateValue))
+            var body = await request.ReadFromJsonAsync<MergeRequestPayload>();
+            blobUrl = body?.BlobUrl ?? blobUrl;
+            containerName = body?.ContainerName ?? body?.ClientName ?? containerName;
+            folderPath = body?.FolderPath ?? folderPath;
+            dateValue = body?.Date ?? dateValue;
+
+            if (!string.IsNullOrWhiteSpace(blobUrl))
             {
-                var body = await request.ReadFromJsonAsync<MergeRequestPayload>();
-                clientName = body?.ClientName ?? clientName;
-                dateValue = body?.Date ?? dateValue;
+                var parsedRequest = ParseBlobUrl(blobUrl);
+                if (parsedRequest is not null)
+                {
+                    return parsedRequest;
+                }
             }
 
-            if (string.IsNullOrWhiteSpace(clientName) || string.IsNullOrWhiteSpace(dateValue))
+            if (!string.IsNullOrWhiteSpace(containerName) && !string.IsNullOrWhiteSpace(folderPath))
+            {
+                return new MergeRequest(containerName, folderPath);
+            }
+
+            if (!string.IsNullOrWhiteSpace(containerName) && !string.IsNullOrWhiteSpace(dateValue))
+            {
+                return new MergeRequest(containerName, string.Empty);
+            }
+
+            return null;
+        }
+
+        private static MergeRequest? ParseBlobUrl(string blobUrl)
+        {
+            if (!Uri.TryCreate(blobUrl, UriKind.Absolute, out var uri))
             {
                 return null;
             }
 
-            if (!DateTime.TryParse(dateValue, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var date))
+            var path = uri.AbsolutePath.Trim('/');
+            var segments = path.Split('/', StringSplitOptions.RemoveEmptyEntries);
+            if (segments.Length < 2)
             {
                 return null;
             }
 
-            return new MergeRequest(clientName, date.Date);
+            var containerName = segments[0];
+            var blobPath = string.Join("/", segments.Skip(1));
+            var folderPath = Path.GetDirectoryName(blobPath)?.Replace('\\', '/') ?? string.Empty;
+            return new MergeRequest(containerName, folderPath);
         }
     }
 
     private sealed class MergeRequestPayload
     {
+        public string? BlobUrl { get; set; }
+        public string? ContainerName { get; set; }
+        public string? FolderPath { get; set; }
         public string? ClientName { get; set; }
         public string? Date { get; set; }
     }
