@@ -8,6 +8,7 @@ using DocumentFormat.OpenXml.Spreadsheet;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Http;
 using Microsoft.Extensions.Logging;
+using Azure.Storage.Blobs.Models;
 
 namespace CsvMergeFunctionV2.Functions;
 
@@ -95,11 +96,27 @@ public class MergeCsvFunction
         }
         outputStream.Position = 0;
 
+        var folderLabel = string.IsNullOrWhiteSpace(folderPath) ? "root" : folderPath.Replace('/', '-');
+        var outputBlobName = string.IsNullOrWhiteSpace(folderPath)
+            ? $"clients/merged-{containerName}-{folderLabel}.xlsx"
+            : $"clients/{folderPath}/merged-{containerName}-{folderLabel}.xlsx";
+        var outputBytes = outputStream.ToArray();
+        var outputBlobClient = containerClient.GetBlobClient(outputBlobName);
+        await using (var uploadStream = new MemoryStream(outputBytes))
+        {
+            await outputBlobClient.UploadAsync(
+                uploadStream,
+                new BlobHttpHeaders
+                {
+                    ContentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                },
+                overwrite: true);
+        }
+
         var response = request.CreateResponse(System.Net.HttpStatusCode.OK);
         response.Headers.Add("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-        var folderLabel = string.IsNullOrWhiteSpace(folderPath) ? "root" : folderPath.Replace('/', '-');
         response.Headers.Add("Content-Disposition", $"attachment; filename=merged-{containerName}-{folderLabel}.xlsx");
-        await response.WriteBytesAsync(outputStream.ToArray());
+        await response.WriteBytesAsync(outputBytes);
         return response;
     }
 
