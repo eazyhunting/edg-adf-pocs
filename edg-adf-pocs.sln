@@ -8,6 +8,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "function_app", "function_ap
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CombineCsvToSharePoint", "function_app\CombineCsvToSharePoint.csproj", "{A90E280D-918B-B016-E71C-354BD9963D36}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ActivityReportsAutomation", "ActivityReportsAutomation\ActivityReportsAutomation.csproj", "{5E36EAB8-7C4E-4BA0-93D3-3E68B6007AF1}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -22,6 +24,10 @@ Global
 		{A90E280D-918B-B016-E71C-354BD9963D36}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{A90E280D-918B-B016-E71C-354BD9963D36}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{A90E280D-918B-B016-E71C-354BD9963D36}.Release|Any CPU.Build.0 = Release|Any CPU
+		{5E36EAB8-7C4E-4BA0-93D3-3E68B6007AF1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5E36EAB8-7C4E-4BA0-93D3-3E68B6007AF1}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5E36EAB8-7C4E-4BA0-93D3-3E68B6007AF1}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5E36EAB8-7C4E-4BA0-93D3-3E68B6007AF1}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
